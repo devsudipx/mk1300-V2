@@ -27,6 +27,10 @@ Manual: `npx serve -l 8080 .` phir `chrome.exe --disable-hid-blocklist http://lo
 
 ## Notes
 
+- Default = **Lights off · ripple only**: keyboard band rehta hai, jis key par click/type karo wahin se ripple shuru hoti hai.
+  Doosre base effects (Rainbow, Aurora…) chip se chun sakte ho.
+- Site 30 fps par chalti hai, aur jab kuch light nahi ho raha tab koi kaam/packet nahi bhejti (GPU/CPU almost zero).
+
 - Mode 16 ya 20 (UserLight) dropdown se badal sakte ho, jaise original tool ka toggle.
 - Ek frame = 7 HID packets (har ek ka response wait hota hai), isliye real keyboard par animation
   screen se thodi dheemi ho sakti hai. Agar atke, to "Send live ripples to keyboard" band kar do.
