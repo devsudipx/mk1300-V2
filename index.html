@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MK1300 V2 Ripple</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg: #0b0e15;
+  --panel: #131928;
+  --line: #263044;
+  --fg: #e8ecf4;
+  --muted: #8d99b0;
+  --accent: #7aa2ff;
+  --accent-fg: #0b0e15;
+  --ok: #4ade80;
+  --off: #f87171;
+  --key: #1a2133;
+  --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5; padding: 24px 16px 48px; }
+.wrap { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+h1 { margin: 0; font-size: 26px; letter-spacing: -0.02em; }
+.sub { color: var(--muted); margin: 2px 0 0; font-size: 14px; }
+.status { display: flex; align-items: center; gap: 10px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--off); }
+.dot.on { background: var(--ok); }
+button { font: inherit; font-weight: 600; cursor: pointer; border: 0; border-radius: 10px; padding: 10px 18px; background: var(--accent); color: var(--accent-fg); }
+button:disabled { opacity: 0.5; cursor: default; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.board { overflow-x: auto; }
+.kb { position: relative; margin: 0 auto; }
+.k {
+  position: absolute; display: flex; align-items: center; justify-content: center;
+  border-radius: 6px; background: var(--key); color: var(--muted);
+  font-size: 12px; font-family: var(--font-mono); cursor: pointer; user-select: none; -webkit-user-select: none;
+  border: 1px solid #222b3f;
+}
+.hint { text-align: center; color: var(--muted); font-size: 13px; margin: 12px 0 0; }
+.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px 22px; }
+.field { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.lab { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0.07em; text-transform: uppercase; display: flex; justify-content: space-between; gap: 8px; }
+.lab output { font-family: var(--font-mono); font-weight: 400; color: var(--fg); letter-spacing: 0; text-transform: none; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { border-radius: 0; background: transparent; color: var(--muted); padding: 9px 10px; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+input[type="color"] { width: 100%; height: 40px; padding: 3px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); cursor: pointer; }
+input[type="color"]:disabled { opacity: 0.3; cursor: default; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.log { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); background: #0e121c; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; height: 110px; overflow: auto; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>MK1300 V2 Ripple</h1>
+      <p class="sub">Press a key and a ripple spreads from it across the whole keyboard. When nothing is pressed, the lights stay off.</p>
+    </div>
+    <div class="status">
+      <span class="dot" id="dot"></span><span id="stext">Not connected</span>
+      <button id="connect" type="button">Connect keyboard</button>
+    </div>
+  </header>
+
+  <section class="panel">
+    <div class="board"><div class="kb" id="kb"></div></div>
+    <p class="hint" id="hint">Click a key here to test the ripple, or press keys on your keyboard while this tab is focused.</p>
+  </section>
+
+  <section class="panel">
+    <div class="controls">
+      <div class="field">
+        <span class="lab">Color mode</span>
+        <div class="seg" role="group" aria-label="Color mode">
+          <button type="button" id="m-single" aria-pressed="true">Single color</button>
+          <button type="button" id="m-rgb" aria-pressed="false">RGB</button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="lab" for="color">Color</label>
+        <input type="color" id="color" value="#00b3ff">
+      </div>
+      <div class="field">
+        <label class="lab" for="speed">Speed <output id="o-speed"></output></label>
+        <input type="range" id="speed" min="5" max="30" step="1" value="14">
+      </div>
+      <div class="field">
+        <label class="lab" for="width">Ring width <output id="o-width"></output></label>
+        <input type="range" id="width" min="1" max="5" step="0.1" value="2.2">
+      </div>
+      <div class="field">
+        <label class="lab" for="bright">Brightness <output id="o-bright"></output></label>
+        <input type="range" id="bright" min="10" max="100" step="5" value="100">
+      </div>
+      <div class="field">
+        <span class="lab">Keyboard options</span>
+        <label class="check"><input type="checkbox" id="fast" checked> Fast send (smoother, no replies)</label>
+        <label class="check"><input type="checkbox" id="rev20"> Hardware rev 20 (try if lights don't respond)</label>
+      </div>
+    </div>
+  </section>
+
+  <div class="log" id="log" aria-live="polite"></div>
+</div>
+
+<script type="module">
+import { HIDDriver } from './hid-driver.js';
+import { KEY_COUNT, KB_WIDTH, KB_HEIGHT, KEYBOARD_LAYOUT } from './keyboard-layout.js';
+import { KEYS, createRipple, isAlive, renderFrame, CODE_TO_INDEX } from './ripple-engine.js';
+
+const $ = (id) => document.getElementById(id);
+const driver = new HIDDriver();
+const origOnInput = driver._onInputReport.bind(driver);
+const logEl = $('log');
+function log(msg) {
+  logEl.textContent += msg + '\n';
+  logEl.scrollTop = logEl.scrollHeight;
+}
+driver.onLog = log;
+
+/* ---------- settings ---------- */
+let ready = false; // true once the keyboard setup (which needs replies) has finished
+const S = { mode: 'single', color: '#00b3ff', speed: 14, width: 2.2, bright: 100, fast: true, rev20: false };
+try { Object.assign(S, JSON.parse(localStorage.getItem('mk1300-ripple') || '{}')); } catch (e) {}
+function save() { try { localStorage.setItem('mk1300-ripple', JSON.stringify(S)); } catch (e) {} }
+
+function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+
+function syncUI() {
+  $('m-single').setAttribute('aria-pressed', S.mode === 'single');
+  $('m-rgb').setAttribute('aria-pressed', S.mode === 'rgb');
+  $('color').disabled = S.mode === 'rgb';
+  $('color').value = S.color;
+  $('speed').value = S.speed; $('o-speed').textContent = S.speed + ' keys/s';
+  $('width').value = S.width; $('o-width').textContent = S.width + ' keys';
+  $('bright').value = S.bright; $('o-bright').textContent = S.bright + '%';
+  $('fast').checked = S.fast; $('rev20').checked = S.rev20;
+  driver._onInputReport = (S.fast && ready) ? () => {} : origOnInput;
+}
+$('m-single').onclick = () => { S.mode = 'single'; save(); syncUI(); $('m-single').blur(); };
+$('m-rgb').onclick = () => { S.mode = 'rgb'; save(); syncUI(); $('m-rgb').blur(); };
+$('color').oninput = (e) => { S.color = e.target.value; save(); };
+$('speed').oninput = (e) => { S.speed = +e.target.value; save(); syncUI(); };
+$('width').oninput = (e) => { S.width = +e.target.value; save(); syncUI(); };
+$('bright').oninput = (e) => { S.bright = +e.target.value; save(); syncUI(); };
+$('fast').onchange = (e) => { S.fast = e.target.checked; save(); syncUI(); };
+$('rev20').onchange = async (e) => {
+  S.rev20 = e.target.checked; save();
+  if (driver.connected) {
+    ready = false; syncUI();
+    try { await driver.setHardwareAnimation(S.rev20 ? 20 : 16, 4); log('Custom light mode re-applied.'); } catch (err) { log('ERR: ' + err.message); }
+    ready = true; syncUI(); sendBlack();
+  }
+};
+
+/* ---------- on-screen keyboard ---------- */
+const kb = $('kb');
+const keyEls = KEYBOARD_LAYOUT.map((k) => {
+  const el = document.createElement('div');
+  el.className = 'k';
+  el.textContent = k.name;
+  el.addEventListener('pointerdown', (ev) => { ev.preventDefault(); trigger(k.index); });
+  kb.appendChild(el);
+  return el;
+});
+function layoutKeys() {
+  const avail = Math.max(320, Math.min(window.innerWidth - 80, 900));
+  const u = Math.floor(avail / KB_WIDTH);
+  kb.style.width = (KB_WIDTH * u) + 'px';
+  kb.style.height = (KB_HEIGHT * u) + 'px';
+  KEYBOARD_LAYOUT.forEach((k, i) => {
+    const el = keyEls[i];
+    el.style.left = (k.x * u) + 'px';
+    el.style.top = (k.y * u) + 'px';
+    el.style.width = (k.w * u - 4) + 'px';
+    el.style.height = (u - 4) + 'px';
+  });
+}
+window.addEventListener('resize', layoutKeys);
+layoutKeys();
+
+/* ---------- ripples ---------- */
+let ripples = [];
+let running = false;
+let sending = false;
+let lastSent = null;
+
+function trigger(keyIndex) {
+  const rp = createRipple(keyIndex, performance.now(), {
+    mode: S.mode, color: hexRgb(S.color), speed: S.speed, width: S.width,
+  });
+  if (!rp) return;
+  ripples.push(rp);
+  if (!running) { running = true; requestAnimationFrame(tick); }
+}
+
+function paint(perKey) {
+  for (let i = 0; i < perKey.length; i++) {
+    const c = perKey[i];
+    const lit = c.r + c.g + c.b > 0;
+    keyEls[i].style.background = lit ? `rgb(${c.r},${c.g},${c.b})` : '';
+    keyEls[i].style.color = lit && (c.r + c.g + c.b) > 300 ? '#0b0e15' : '';
+  }
+}
+
+async function sendFrame(flat) {
+  if (!S.fast) { await driver.setAllKeyColors(Array.from(flat), KEY_COUNT); return; }
+  // Same packets as setAllKeyColors, but without waiting for a reply after each one.
+  const total = KEY_COUNT * 3, chunkSize = 56, chunks = Math.ceil(total / chunkSize);
+  for (let i = 0; i < chunks; i++) {
+    const offset = chunkSize * i, remaining = total - offset, take = Math.min(chunkSize, remaining);
+    const isLast = i === chunks - 1;
+    const packet = new Array(63).fill(0);
+    packet[0] = 18;
+    packet[1] = isLast && remaining % chunkSize > 0 ? (remaining % chunkSize) + 3 : chunkSize + 3;
+    packet[2] = offset & 0xFF;
+    packet[3] = (offset >> 8) & 0xFF;
+    for (let j = 0; j < take; j++) packet[7 + j] = flat[offset + j] || 0;
+    await driver.sendCommand(6, packet, false);
+  }
+}
+
+function same(a, b) {
+  if (!a || !b) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+function allZero(a) { for (let i = 0; i < a.length; i++) if (a[i]) return false; return true; }
+
+function sendBlack() {
+  lastSent = null;
+  if (!running) { running = true; requestAnimationFrame(tick); }
+}
+
+function tick(now) {
+  ripples = ripples.filter((rp) => isAlive(rp, now));
+  const f = renderFrame(ripples, now, S.bright / 100);
+  paint(f.perKey);
+
+  if (driver.connected && !sending && !same(f.flat, lastSent)) {
+    sending = true;
+    const snapshot = f.flat;
+    sendFrame(snapshot).then(() => { lastSent = snapshot; })
+      .catch((e) => { log('ERR: ' + e.message); lastSent = null; })
+      .finally(() => { sending = false; });
+  }
+
+  const settled = !ripples.length && (!driver.connected || (!sending && lastSent && allZero(lastSent)));
+  if (settled) { running = false; } else { requestAnimationFrame(tick); }
+}
+
+/* ---------- physical keys (browser must have focus) ---------- */
+const SWALLOW = new Set(['Tab', 'Space', 'AltLeft', 'AltRight', 'ContextMenu', 'Backspace', 'Enter', 'Quote', 'Slash']);
+window.addEventListener('keydown', (e) => {
+  const idx = CODE_TO_INDEX[e.code];
+  if (idx === undefined) return;
+  if (SWALLOW.has(e.code)) e.preventDefault();
+  if (e.repeat) return;
+  trigger(idx);
+});
+
+/* ---------- connect ---------- */
+$('connect').onclick = async () => {
+  const btn = $('connect');
+  btn.disabled = true; btn.textContent = 'Connecting...';
+  try {
+    const info = await driver.connect();
+    $('dot').classList.add('on');
+    $('stext').textContent = (info.productName || 'Keyboard') + ' connected';
+    btn.textContent = 'Connected';
+    await driver.setHardwareAnimation(S.rev20 ? 20 : 16, 4);
+    log('Custom lighting mode on. Lights are off until you press a key.');
+    ready = true;
+    syncUI();
+    sendBlack();
+  } catch (e) {
+    $('dot').classList.remove('on');
+    $('stext').textContent = 'Not connected';
+    btn.textContent = 'Connect keyboard'; btn.disabled = false;
+    log('ERR: ' + e.message);
+  }
+};
+
+if (!('hid' in navigator)) {
+  $('stext').textContent = 'WebHID not available: use Chrome or Edge';
+  $('connect').disabled = true;
+}
+syncUI();
+</script>
+</body>
+</html>
