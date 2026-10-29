@@ -14,8 +14,8 @@ Idle = all lights off. Single color or RGB (rainbow ring).
 ## Notes
 - Keys are only detected while this browser tab is focused (browser limit).
 - The Windows key and Fn are not visible to the browser, so they cannot start a ripple.
-- "Fast send" streams frames without waiting for replies. If the lights flicker or lag, untick it.
-- "Hardware rev 20": try it if the keyboard does not react (same switch as the original tool).
+- By default each packet waits for the keyboard's reply (this is what the original tool does). "Fast send" skips the wait: smoother, but some boards ignore it.
+- "Hardware rev 20" is on by default (the original tool has the same switch). Untick it if your lights do not react.
 - If lights stay off after closing the page, unplug and replug the keyboard.
 
 ## Credits

@@ -102,8 +102,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
       </div>
       <div class="field">
         <span class="lab">Keyboard options</span>
-        <label class="check"><input type="checkbox" id="fast" checked> Fast send (smoother, no replies)</label>
-        <label class="check"><input type="checkbox" id="rev20"> Hardware rev 20 (try if lights don't respond)</label>
+        <label class="check"><input type="checkbox" id="fast"> Fast send (no replies, may not apply on some boards)</label>
+        <label class="check"><input type="checkbox" id="rev20" checked> Hardware rev 20 (needed on some boards)</label>
       </div>
     </div>
   </section>
@@ -128,9 +128,9 @@ driver.onLog = log;
 
 /* ---------- settings ---------- */
 let ready = false; // true once the keyboard setup (which needs replies) has finished
-const S = { mode: 'single', color: '#00b3ff', speed: 14, width: 2.2, bright: 100, fast: true, rev20: false };
-try { Object.assign(S, JSON.parse(localStorage.getItem('mk1300-ripple') || '{}')); } catch (e) {}
-function save() { try { localStorage.setItem('mk1300-ripple', JSON.stringify(S)); } catch (e) {} }
+const S = { mode: 'single', color: '#00b3ff', speed: 14, width: 2.2, bright: 100, fast: false, rev20: true };
+try { Object.assign(S, JSON.parse(localStorage.getItem('mk1300-ripple-v2') || '{}')); } catch (e) {}
+function save() { try { localStorage.setItem('mk1300-ripple-v2', JSON.stringify(S)); } catch (e) {} }
 
 function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
 
@@ -211,12 +211,17 @@ function paint(perKey) {
   }
 }
 
-async function sendFrame(flat) {
-  if (!S.fast) { await driver.setAllKeyColors(Array.from(flat), KEY_COUNT); return; }
-  // Same packets as setAllKeyColors, but without waiting for a reply after each one.
+async function sendFrame(flat, prev) {
+  // Same packets as setAllKeyColors. Only chunks that changed since the last frame are sent.
+  // Normal mode waits for the keyboard's reply after each packet; Fast send does not.
   const total = KEY_COUNT * 3, chunkSize = 56, chunks = Math.ceil(total / chunkSize);
   for (let i = 0; i < chunks; i++) {
     const offset = chunkSize * i, remaining = total - offset, take = Math.min(chunkSize, remaining);
+    if (prev) {
+      let diff = false;
+      for (let j = 0; j < take; j++) if (flat[offset + j] !== prev[offset + j]) { diff = true; break; }
+      if (!diff) continue;
+    }
     const isLast = i === chunks - 1;
     const packet = new Array(63).fill(0);
     packet[0] = 18;
@@ -224,7 +229,7 @@ async function sendFrame(flat) {
     packet[2] = offset & 0xFF;
     packet[3] = (offset >> 8) & 0xFF;
     for (let j = 0; j < take; j++) packet[7 + j] = flat[offset + j] || 0;
-    await driver.sendCommand(6, packet, false);
+    await driver.sendCommand(6, packet, !S.fast);
   }
 }
 
@@ -248,7 +253,7 @@ function tick(now) {
   if (driver.connected && !sending && !same(f.flat, lastSent)) {
     sending = true;
     const snapshot = f.flat;
-    sendFrame(snapshot).then(() => { lastSent = snapshot; })
+    sendFrame(snapshot, lastSent).then(() => { lastSent = snapshot; })
       .catch((e) => { log('ERR: ' + e.message); lastSent = null; })
       .finally(() => { sending = false; });
   }
